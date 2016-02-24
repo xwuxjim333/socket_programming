@@ -17,7 +17,7 @@
 
 #define PORT 20000 
 #define LENGTH 512 
-#define BACKLOG 5
+#define BACKLOG 5 
 
 void error(const char *msg)
 {
@@ -77,8 +77,8 @@ int main(int argc, char *argv[])
 			printf("[Server] Server has got connected from %s.\n", inet_ntoa(cli_addr.sin_addr));
 
 		/*Receive File from Client */
-        //char file[100] = "/home/xwuxjim333/Desktop/socket_programming/receive.";
-        char file[100] = "/home/mimi/Desktop/socket_programming/receive.";
+        char file[100] = "/home/xwuxjim333/Desktop/socket_programming/receive.";
+        //char file[100] = "/home/mimi/Desktop/socket_programming/receive.";
         strcat(file, argv[1]);
         char* fr_name = file;
 		FILE *fr = fopen(fr_name, "a");

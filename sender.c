@@ -55,8 +55,8 @@ int main(int argc, char *argv[])
 
     /* Send File to Server */
     char send_buf[LENGTH];
-    //char file[50] = "/home/xwuxjim333/Desktop/socket_programming/";
-    char file[50] = "/home/mimi/Desktop/socket_programming/";
+    char file[50] = "/home/xwuxjim333/Desktop/socket_programming/";
+    //char file[50] = "/home/mimi/Desktop/socket_programming/";
     strcat(file, argv[1]);
     char* fs_name = file;
     printf("[Client] Sending %s to the Server... \n", fs_name);
