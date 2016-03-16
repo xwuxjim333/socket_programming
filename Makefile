@@ -10,4 +10,7 @@ clean:
 	$(RM) receiver
 	$(RM) get*
 	$(RM) back*
+	$(RM) receive.jpg
+	$(RM) receive.mp3
+	$(RM) receive.mp4
 
