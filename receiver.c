@@ -15,9 +15,12 @@
 #include <netdb.h>
 #include <errno.h>
 
+#include <unistd.h>
+
 #define PORT 20000 
-#define LENGTH 512 
-#define BACKLOG 5
+#define LENGTH 512
+#define BACKLOG 5 
+#define server_ip "140.116.177.119"
 
 void error(const char *msg)
 {
@@ -28,12 +31,13 @@ void error(const char *msg)
 int main(int argc, char *argv[])
 {
     /* Defining Variables */
-    int sockfd, newsockfd, clilen;
+    int sockfd, newsockfd;
     char rev_buf[LENGTH];                   // receive buffer
+    char send_buf[LENGTH];                  // Send buffer
     struct sockaddr_in serv_addr, cli_addr; // server(receiver) addr & client(sender) addr
     int sin_size, n;
 
-    if (argc < 2) {
+    if (argc != 2) {
         fprintf(stderr,"ERROR usage %s [file format]\n", argv[0]);
         exit(1);
     }
@@ -44,17 +48,18 @@ int main(int argc, char *argv[])
 	else 
 		printf("[Server] Obtaining socket descriptor successfully.\n");
 
-    /* Fill the client socket address struct */
+    /* Fill the server socket address struct */
 	serv_addr.sin_family = AF_INET;                // Protocol Family
 	serv_addr.sin_port = htons(PORT);              // Port number
-	serv_addr.sin_addr.s_addr = INADDR_ANY;        // AutoFill local address(127.0.0.1)
+	inet_pton(AF_INET, server_ip, &serv_addr.sin_addr); 
+	//serv_addr.sin_addr.s_addr = INADDR_ANY;        // AutoFill local address(127.0.0.1)
 	bzero(&(serv_addr.sin_zero), 8);               // Flush the rest of struct
 
     /* Bind a special Port */
 	if( bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(struct sockaddr)) == -1 )
 		error("ERROR on binding");
 	else 
-		printf("[Server] Binded tcp port %d in addr 127.0.0.1 sucessfully.\n",PORT);
+		printf("[Server] Binded tcp port %d in addr %s sucessfully.\n", ntohs(serv_addr.sin_port), server_ip);
 
     /* Listen remote connect/calling */
 	if(listen(sockfd,BACKLOG) == -1) {
@@ -62,10 +67,9 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	else
-		printf ("[Server] Listening the port %d successfully.\n", PORT);
+		printf ("[Server] Listening the port %d successfully.\n", ntohs(serv_addr.sin_port));
 
-	int success = 0;
-	while(success == 0) {
+	while(1) {
 		sin_size = sizeof(struct sockaddr_in);
 
 		/* Wait a connection, and obtain a new socket file despriptor for single connection */
@@ -73,12 +77,14 @@ int main(int argc, char *argv[])
 		    fprintf(stderr, "ERROR: Obtaining new Socket Despcritor. (errno = %d)\n", errno);
 			exit(1);
 		}
-		else 
-			printf("[Server] Server has got connected from %s.\n", inet_ntoa(cli_addr.sin_addr));
+		else {
+			printf("[Server] Server has got connected from %s:%d.\n", 
+                inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
+        }
 
 		/*Receive File from Client */
-        //char file[100] = "/home/xwuxjim333/Desktop/socket_programming/receive.";
-        char file[100] = "/home/mimi/Desktop/socket_programming/receive.";
+        char file[100] = "/home/xwuxjim333/Desktop/socket_programming/get.";
+        //char file[100] = "/home/mimi/Desktop/socket_programming/get.";
         strcat(file, argv[1]);
         char* fr_name = file;
 		FILE *fr = fopen(fr_name, "a");
@@ -90,9 +96,16 @@ int main(int argc, char *argv[])
 			int fr_block_sz = 0;
             int packet = 0;
             int final = 0;
+            int retrans = 0;
 
             /* recevice */
 			while((fr_block_sz = recv(newsockfd, rev_buf, LENGTH, 0)) > 0) {
+				printf("Packet %d :\n", packet+1);
+				int i = 0;
+				for(i = 0; i < LENGTH; i++) {
+					printf("%x", rev_buf[i]);
+				}
+				printf("\n------------------------------------------------\n");
 			    int write_sz = fwrite(rev_buf, sizeof(char), fr_block_sz, fr);
                 final = final+write_sz;
                 packet++;
@@ -101,10 +114,6 @@ int main(int argc, char *argv[])
 			        error("File write failed on server.\n"); 
 
 				bzero(rev_buf, LENGTH);
-
-				if (fr_block_sz == 0 || fr_block_sz != 512) //final packet
-					break;
-
 			}
 
 			if(fr_block_sz < 0) {
@@ -118,13 +127,57 @@ int main(int argc, char *argv[])
         	}
 
             printf("packet = %d\n", packet);
+            //printf("retrans = %d\n", retrans);
             printf("final byte = %d\n", final);
 			printf("[Server] Ok!!! Get %s from sender!!!\n", argv[1]);
             printf("[Server] Save as %s\n", fr_name);
-            success = 1;
-			fclose(fr); 
+            fclose(fr);
+            break;
+
 		}
-    	close(sockfd);
-        printf("[Server] Shut down.\n");
     }
+	close(newsockfd);
+    sleep(1);
+	printf("[Server]\n");
+
+	while(1) {
+		/* Wait a connection, and obtain a new socket file despriptor for single connection */
+		if ((newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &sin_size)) == -1) {
+		    fprintf(stderr, "ERROR: Obtaining new Socket Despcritor. (errno = %d)\n", errno);
+			exit(1);
+		}
+		else {
+			printf("[Server] Server has got connected from %s:%d.\n", 
+                inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
+
+			///* Send File to Client
+			//char* fs_name = "/home/xwuxjim333/Desktop/socket_programming/receive.jpg";
+			char* fs_name = "/home/xwuxjim333/Desktop/socket_programming/1.jpg";
+			printf("[Server] Sending %s to the Client\n", fs_name);
+			FILE *fs = fopen(fs_name, "r");
+			if(fs == NULL) {
+				fprintf(stderr, "ERROR: File %s not found on server.\n", fs_name);
+				exit(1);
+			}
+
+			bzero(send_buf, LENGTH); 
+			int fs_block_sz; 
+			while((fs_block_sz = fread(send_buf, sizeof(char), LENGTH, fs)) > 0)
+			{
+				if(send(newsockfd, send_buf, fs_block_sz, 0) < 0) {
+					fprintf(stderr, "ERROR: Failed to send file %s.\n", fs_name);
+					break;
+				}
+				bzero(send_buf, LENGTH);
+			}
+			printf("[Server] Ok sent to client!\n");
+			printf("[Server] Connection with Client closed.\n");
+			fclose(fs);
+			break;
+        }
+	}
+	close(newsockfd);
+
+    close(sockfd);
+    printf("[Server] Shut down.\n");
 }
